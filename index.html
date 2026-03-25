@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>DekTalk Sequencer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <div id="app">
+    <div class="top-panel">
+      <div class="text-panel">
+        <div class="text-header">
+          <span class="label">DekTalk Text</span>
+        </div>
+        <textarea id="source-text" spellcheck="false" placeholder="Type DekTalk text here (e.g. [:rate 200] JOHN MADDEN)"></textarea>
+        <div class="text-actions">
+          <button id="split-notes" class="secondary-btn small">Split to notes</button>
+        </div>
+      </div>
+
+      <div class="sequencer-panel">
+        <div class="grid-header">
+          <div class="tempo-group">
+            <label for="tempo">BPM</label>
+            <input id="tempo" type="range" min="40" max="220" value="110" />
+            <span id="tempo-value">110</span>
+          </div>
+          <div class="controls-group">
+            <button id="play-toggle" class="primary-btn">Play</button>
+            <button id="stop" class="secondary-btn">Stop</button>
+          </div>
+        </div>
+
+        <div class="piano-roll">
+          <div class="pitch-labels" id="pitch-labels"></div>
+          <div class="roll-wrap">
+            <div class="roll-grid" id="roll-grid">
+              <div class="playhead" id="playhead"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="bottom-panel">
+      <div class="tabs">
+        <button class="tab active" data-tab="export">Export</button>
+        <button class="tab" data-tab="preview">TTS Preview</button>
+        <button class="tab" data-tab="help">Codes</button>
+      </div>
+
+      <div class="tab-content active" id="tab-export">
+        <div class="export-row">
+          <div class="field-group">
+            <label for="max-len">Max chars per line</label>
+            <input id="max-len" type="number" min="32" max="128" value="120" />
+          </div>
+          <div class="field-group">
+            <label for="line-prefix">Line prefix</label>
+            <input id="line-prefix" type="text" placeholder="(optional: e.g. /s " />
+          </div>
+          <button id="generate" class="primary-btn small">Generate</button>
+        </div>
+        <textarea id="export-output" spellcheck="false"></textarea>
+        <div class="export-footer">
+          <span id="char-warning" class="warning hidden">Some lines exceeded 128 characters and were hard-clipped.</span>
+          <button id="copy-output" class="secondary-btn small">Copy</button>
+        </div>
+      </div>
+
+      <div class="tab-content" id="tab-preview">
+        <div class="preview-row">
+          <span class="preview-label">Live note TTS (browser)</span>
+          <label class="switch">
+            <input id="preview-toggle" type="checkbox" />
+            <span class="slider"></span>
+          </label>
+        </div>
+        <p class="hint">
+          Uses your browser’s text‑to‑speech to approximate DekTalk timing.
+          Exact sound in Moonbase Alpha will differ.
+        </p>
+      </div>
+
+      <div class="tab-content" id="tab-help">
+        <div class="codes-grid">
+          <div>
+            <h3>Core DekTalk codes</h3>
+            <ul>
+              <li><code>[:rate x]</code> – speed (e.g. <code>[:rate 200]</code>)</li>
+              <li><code>[:dv x]</code> – distortion / voice warp</li>
+              <li><code>[:nh]</code> – whisper / harsh mode</li>
+              <li><code>[text&lt;dur,pitch&gt;]</code> – phoneme note</li>
+            </ul>
+          </div>
+          <div>
+            <h3>Tips</h3>
+            <ul>
+              <li>128 char hard limit per message</li>
+              <li>Punctuation is spoken literally</li>
+              <li>Weird spacing + caps = new sounds</li>
+              <li>Avoid <code>EST PST CST MST</code> spam (can crash)</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "nanoevents": "https://esm.sh/nanoevents@7.0.1"
+      }
+    }
+  </script>
+  <script type="module" src="./main.js"></script>
+</body>
+</html>
