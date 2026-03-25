@@ -41,9 +41,22 @@ const state = {
   notes: [],
   maxLen: 120,
   linePrefix: "",
+  literalSymbols: true,
+  chaosMode: false,
+  strictCap: true,
+  timezoneGuard: true,
   previewEnabled: false,
   timerId: null,
   nextNoteId: 1
+};
+
+const SYMBOL_WORDS = {
+  "*": "asterisk",
+  "?": "question mark",
+  "!": "exclamation mark",
+  "#": "hash",
+  "@": "at sign",
+  "&": "ampersand"
 };
 
 /* DOM helpers */
@@ -230,11 +243,15 @@ function buildDekLineForNotes(notes) {
 }
 
 function stripDekCodesForTTS(text) {
-  return text
+  let cleaned = text
     .replace(/\[:[^\]]+\]/g, " ")
     .replace(/\[[^<\]]+<[0-9,\-]+>\]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+    .replace(/\s+/g, " ");
+
+  if (state.literalSymbols) {
+    cleaned = [...cleaned].map((char) => SYMBOL_WORDS[char] ?? char).join("");
+  }
+  return cleaned.trim();
 }
 
 function startPlayback() {
@@ -272,9 +289,10 @@ function splitTextToNotes() {
 
   tokens.forEach((token) => {
     if (step >= STEPS) return;
+    const cleaned = sanitizePhonemeToken(token) || token;
     const note = {
       id: state.nextNoteId++,
-      token,
+      token: cleaned,
       start: step,
       length: 1,
       row: defaultRow
@@ -284,6 +302,7 @@ function splitTextToNotes() {
   });
 
   renderNotes();
+  updateDiagnostics();
 }
 
 /* Export */
@@ -301,7 +320,11 @@ function generateLines() {
       (n) => step >= n.start && step < n.start + n.length
     );
     if (!notes.length) continue;
-    const line = buildDekLineForNotes(notes);
+    let line = buildDekLineForNotes(notes);
+    line = applyMoonbaseJank(line);
+    if (state.timezoneGuard) {
+      line = line.replace(/EST PST CST MST EST PST CST MST/gi, "[BLOCKED_TZ_SEQUENCE]");
+    }
     if (line.trim()) perStepLines.push(line);
   }
 
@@ -311,13 +334,14 @@ function generateLines() {
   perStepLines.forEach((line) => {
     let current = state.linePrefix + line;
     while (current.length > 0) {
-      if (current.length <= maxLen) {
+      const lenLimit = state.strictCap ? Math.min(maxLen, 128) : maxLen;
+      if (current.length <= lenLimit) {
         outputLines.push(current);
         current = "";
       } else {
         overLimit = true;
-        outputLines.push(current.slice(0, maxLen));
-        current = current.slice(maxLen);
+        outputLines.push(current.slice(0, lenLimit));
+        current = current.slice(lenLimit);
       }
     }
   });
@@ -329,6 +353,37 @@ function generateLines() {
   } else {
     warning.classList.add("hidden");
   }
+  updateDiagnostics();
+}
+
+function applyMoonbaseJank(line) {
+  if (!state.chaosMode || !line) return line;
+  return line
+    .split("")
+    .map((char, idx) => {
+      if (/[a-z]/i.test(char) && idx % 3 === 0) {
+        return Math.random() > 0.5 ? char.toUpperCase() : char.toLowerCase();
+      }
+      if (char === " " && Math.random() > 0.75) {
+        return "  ";
+      }
+      return char;
+    })
+    .join("");
+}
+
+function updateDiagnostics() {
+  const source = $("#source-text").value || "";
+  $("#char-meter").textContent = `${source.length} / 128`;
+
+  const riskyTimezone = /EST PST CST MST EST PST CST MST/i.test(source);
+  $("#tz-warning").classList.toggle("hidden", !riskyTimezone);
+
+  const tokens = source.split(/\s+/).filter(Boolean);
+  const invalidPhonemes = tokens.filter(
+    (token) => token.startsWith("[") ? false : !sanitizePhonemeToken(token) && !token.startsWith("[:")
+  );
+  $("#phoneme-warning").classList.toggle("hidden", invalidPhonemes.length === 0);
 }
 
 /* Tabs */
@@ -390,12 +445,30 @@ function bindControls() {
     }
   });
 
+  $("#literal-symbols").addEventListener("change", (e) => {
+    state.literalSymbols = e.target.checked;
+  });
+
+  $("#chaos-mode").addEventListener("change", (e) => {
+    state.chaosMode = e.target.checked;
+  });
+
+  $("#strict-cap").addEventListener("change", (e) => {
+    state.strictCap = e.target.checked;
+  });
+
+  $("#timezone-guard").addEventListener("change", (e) => {
+    state.timezoneGuard = e.target.checked;
+  });
+
   $("#preview-toggle").addEventListener("change", (e) => {
     state.previewEnabled = e.target.checked;
     if (!state.previewEnabled && "speechSynthesis" in window) {
       window.speechSynthesis.cancel();
     }
   });
+
+  $("#source-text").addEventListener("input", updateDiagnostics);
 }
 
 /* Init */
@@ -405,6 +478,7 @@ function init() {
   renderNotes();
   setupTabs();
   bindControls();
+  updateDiagnostics();
 }
 
 document.addEventListener("DOMContentLoaded", init);
